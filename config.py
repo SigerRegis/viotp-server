@@ -1,2 +1,2 @@
-VIOTP_TOKEN = "b7ea7db35bc149f0acb00f9630d719a1"
+VIOTP_TOKEN = "1bc808a1396f4d7ba60f4ea7b1cb6a9f"
 BASE_URL = "https://api.viotp.com"
