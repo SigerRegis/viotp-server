@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VIOTP – Cellphones Auto</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    max-width: 420px;
+    margin: auto;
+    padding: 16px;
+}
+button {
+    width: 100%;
+    padding: 14px;
+    margin-top: 12px;
+    font-size: 16px;
+}
+.box {
+    border: 1px solid #ccc;
+    padding: 12px;
+    margin-top: 15px;
+    white-space: pre-line;
+}
+</style>
+</head>
+
+<body>
+
+<h2>📱 VIOTP – Cellphones</h2>
+
+<div class="box" id="balance">⏳ Đang tải số dư...</div>
+
+<button onclick="rentSim()">🚀 Thuê SIM Cellphones</button>
+
+<div class="box" id="result"></div>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+
+let requestId = null;
+let cellphoneServiceId = null;
+let phoneNumber = "";
+let otpCode = "";
+
+async function init() {
+    const bal = await fetch("/api/balance").then(r => r.json());
+    document.getElementById("balance").innerText =
+        "💰 Số dư: " + bal.data.balance;
+
+    const sv = await fetch("/api/services").then(r => r.json());
+    sv.data.forEach(s => {
+        if (s.name && s.name.toLowerCase().includes("cell")) {
+            cellphoneServiceId = s.id;
+        }
+    });
+
+    if (!cellphoneServiceId) {
+        document.getElementById("result").innerText =
+            "❌ Không tìm thấy dịch vụ Cellphones";
+    }
+}
+
+window.rentSim = async function () {
+    document.getElementById("result").innerText = "⏳ Đang thuê SIM...";
+
+    const res = await fetch(`/api/rent?service_id=${cellphoneServiceId}`, {
+        method: "POST"
+    }).then(r => r.json());
+
+    if (res.status_code !== 200) {
+        document.getElementById("result").innerText = "❌ " + res.message;
+        return;
+    }
+
+    phoneNumber = "0" + res.data.phone_number;
+    requestId = res.data.request_id;
+
+    document.getElementById("result").innerHTML =
+        "📞 Số: <b>" + phoneNumber + "</b><br>" +
+        "<button onclick=\"copyText('" + phoneNumber + "')\">📋 Copy SĐT</button><br><br>" +
+        "⏳ Đang chờ OTP...";
+
+    pollOTP();
+};
+
+async function pollOTP() {
+    const res = await fetch(`/api/otp/${requestId}`).then(r => r.json());
+
+    if (res.data && res.data.Status === 1) {
+        otpCode = res.data.Code;
+        document.getElementById("result").innerHTML +=
+            "<br><br>🔐 OTP: <b>" + otpCode + "</b><br>" +
+            "<button onclick=\"copyText('" + otpCode + "')\">📋 Copy OTP</button>";
+    } else {
+        setTimeout(pollOTP, 5000);
+    }
+}
+
+window.copyText = function (text) {
+    navigator.clipboard.writeText(text);
+    alert("✅ Đã copy: " + text);
+};
+
+init();
+});
+</script>
+
+</body>
+</html>
