@@ -1,53 +1,70 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RegisFone</title>
+
+<style>
+body {
+    font-family: Arial, sans-serif;
+    max-width: 420px;
+    margin: auto;
+    padding: 16px;
+}
+button {
+    width: 100%;
+    padding: 14px;
+    margin-top: 12px;
+    font-size: 16px;
+}
+.box {
+    border: 1px solid #ccc;
+    padding: 12px;
+    margin-top: 15px;
+    white-space: pre-line;
+}
+</style>
+</head>
+
+<body>
+
+<h2>📱 RegisFone</h2>
+
+<div class="box" id="balance">⏳ Đang tải số dư...</div>
+
+<button onclick="rentSim()">🚀 Mua</button>
+
+<div class="box" id="result"></div>
+
 <script>
 document.addEventListener("DOMContentLoaded", () => {
 
-let requestId = localStorage.getItem("requestId");
-let cellphoneServiceId = localStorage.getItem("serviceId");
-let phoneNumber = localStorage.getItem("phoneNumber");
-let otpCode = localStorage.getItem("otpCode");
+let requestId = null;
+let cellphoneServiceId = null;
+let phoneNumber = "";
+let otpCode = "";
 
 async function init() {
-    try {
-        const bal = await fetch("/api/balance").then(r => r.json());
-        document.getElementById("balance").innerText =
-            "💰 Số dư: " + bal.data.balance;
+    const bal = await fetch("/api/balance").then(r => r.json());
+    document.getElementById("balance").innerText =
+        "💰 Số dư: " + bal.data.balance;
 
-        // Nếu chưa có serviceId thì load service
-        if (!cellphoneServiceId) {
-            const sv = await fetch("/api/services").then(r => r.json());
-            sv.data.forEach(s => {
-                if (s.name && s.name.toLowerCase().includes("cell")) {
-                    cellphoneServiceId = s.id;
-                    localStorage.setItem("serviceId", cellphoneServiceId);
-                }
-            });
+    const sv = await fetch("/api/services").then(r => r.json());
+    sv.data.forEach(s => {
+        if (s.name && s.name.toLowerCase().includes("cell")) {
+            cellphoneServiceId = s.id;
         }
+    });
 
-        // Nếu đang chờ OTP → khôi phục UI
-        if (requestId && phoneNumber && !otpCode) {
-            document.getElementById("result").innerHTML =
-                `📞 Số: <b>${phoneNumber}</b><br>
-                 <button onclick="copyText('${phoneNumber}')">📋 Copy SĐT</button><br><br>
-                 ⏳ Đang chờ OTP...`;
-            pollOTP();
-        }
-
-        // Nếu đã có OTP
-        if (otpCode) {
-            document.getElementById("result").innerHTML =
-                `📞 Số: <b>${phoneNumber}</b><br>
-                 <button onclick="copyText('${phoneNumber}')">📋 Copy SĐT</button><br><br>
-                 🔐 OTP: <b>${otpCode}</b><br>
-                 <button onclick="copyText('${otpCode}')">📋 Copy OTP</button>`;
-        }
-
-    } catch (e) {
-        document.getElementById("result").innerText = "❌ Lỗi init: " + e;
+    if (!cellphoneServiceId) {
+        document.getElementById("result").innerText =
+            "❌ Không tìm thấy dịch vụ";
     }
 }
 
 window.rentSim = async function () {
-    document.getElementById("result").innerText = "⏳ Đang thuê SIM...";
+    document.getElementById("result").innerText = "⏳ Đang mua...";
 
     const res = await fetch(`/api/rent?service_id=${cellphoneServiceId}`, {
         method: "POST"
@@ -61,14 +78,10 @@ window.rentSim = async function () {
     phoneNumber = "0" + res.data.phone_number;
     requestId = res.data.request_id;
 
-    localStorage.setItem("phoneNumber", phoneNumber);
-    localStorage.setItem("requestId", requestId);
-    localStorage.removeItem("otpCode");
-
     document.getElementById("result").innerHTML =
-        `📞 Số: <b>${phoneNumber}</b><br>
-         <button onclick="copyText('${phoneNumber}')">📋 Copy SĐT</button><br><br>
-         ⏳ Đang chờ OTP...`;
+        "📞 Số: <b>" + phoneNumber + "</b><br>" +
+        "<button onclick=\"copyText('" + phoneNumber + "')\">📋 Copy SĐT</button><br><br>" +
+        "⏳ Đang chờ OTP...";
 
     pollOTP();
 };
@@ -78,11 +91,9 @@ async function pollOTP() {
 
     if (res.data && res.data.Status === 1) {
         otpCode = res.data.Code;
-        localStorage.setItem("otpCode", otpCode);
-
         document.getElementById("result").innerHTML +=
-            `<br><br>🔐 OTP: <b>${otpCode}</b><br>
-             <button onclick="copyText('${otpCode}')">📋 Copy OTP</button>`;
+            "<br><br>🔐 OTP: <b>" + otpCode + "</b><br>" +
+            "<button onclick=\"copyText('" + otpCode + "')\">📋 Copy OTP</button>";
     } else {
         setTimeout(pollOTP, 5000);
     }
@@ -93,12 +104,9 @@ window.copyText = function (text) {
     alert("✅ Đã copy: " + text);
 };
 
-// (tuỳ chọn) nút reset session
-window.clearSession = function () {
-    localStorage.clear();
-    location.reload();
-};
-
 init();
 });
 </script>
+
+</body>
+</html>
