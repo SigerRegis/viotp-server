@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Regis</title>
+<title>RegisFone</title>
 
 <style>
 body {
@@ -29,11 +29,11 @@ button {
 
 <body>
 
-<h2>📱 VIOTP – Cellphones</h2>
+<h2>📱 RegisFone</h2>
 
 <div class="box" id="balance">⏳ Đang tải số dư...</div>
 
-<button onclick="rentSim()">🚀 Thuê SIM Cellphones</button>
+<button onclick="rentSim()">🚀 Mua</button>
 
 <div class="box" id="result"></div>
 
@@ -59,12 +59,12 @@ async function init() {
 
     if (!cellphoneServiceId) {
         document.getElementById("result").innerText =
-            "❌ Không tìm thấy dịch vụ Cellphones";
+            "❌ Không tìm thấy dịch vụ";
     }
 }
 
 window.rentSim = async function () {
-    document.getElementById("result").innerText = "⏳ Đang thuê SIM...";
+    document.getElementById("result").innerText = "⏳ Đang mua...";
 
     const res = await fetch(`/api/rent?service_id=${cellphoneServiceId}`, {
         method: "POST"
