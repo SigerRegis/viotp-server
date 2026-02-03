@@ -29,6 +29,23 @@ button {
 
 <body>
 
+<script>
+(function () {
+    const PASSWORD = "3333";
+    const saved = sessionStorage.getItem("auth_ok");
+
+    if (!saved) {
+        const input = prompt("🔐 Nhập mật khẩu truy cập:");
+        if (input !== PASSWORD) {
+            alert("❌ Sai mật khẩu");
+            document.body.innerHTML = "<h3>❌ Truy cập bị từ chối</h3>";
+            throw new Error("Unauthorized");
+        }
+        sessionStorage.setItem("auth_ok", "1");
+    }
+})();
+</script>
+
 <h2>📱 RegisFone</h2>
 
 <div class="box" id="balance">⏳ Đang tải số dư...</div>
