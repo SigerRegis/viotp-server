@@ -1,9 +1,6 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from fastapi.staticfiles import StaticFiles
-import time
-import threading
-import secrets
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, FileResponse
+import time, threading, secrets, os
 
 from viotp import request_number, get_otp
 
@@ -11,26 +8,23 @@ app = FastAPI()
 
 # ================= CONFIG =================
 PASSWORD = "3333"
-SESSIONS = {}  # token -> created_time
-SESSION_EXPIRE = 3600  # 1 tiếng
+SESSIONS = {}          # token -> created_time
+SESSION_EXPIRE = 3600 # 1 giờ
 
-# ================= STATIC =================
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
-# ================= OTP STORAGE =================
-otp_sessions = {}
-
-# ================= AUTH UTILS =================
+# ================= AUTH =================
 def is_authenticated(request: Request):
     token = request.cookies.get("auth_token")
     if not token:
         return False
+
     created = SESSIONS.get(token)
     if not created:
         return False
+
     if time.time() - created > SESSION_EXPIRE:
-        SESSIONS.pop(token, None)
+        del SESSIONS[token]
         return False
+
     return True
 
 # ================= MIDDLEWARE =================
@@ -38,18 +32,15 @@ def is_authenticated(request: Request):
 async def auth_middleware(request: Request, call_next):
     path = request.url.path
 
-    # Cho phép login
-    if path.startswith("/login") or path.startswith("/static"):
+    # CHỈ CHO LOGIN
+    if path.startswith("/login"):
         return await call_next(request)
 
-    # Chặn toàn bộ API + trang chủ
-    if path.startswith("/api") or path == "/":
-        if not is_authenticated(request):
-            if path.startswith("/api"):
-                return JSONResponse(
-                    {"error": "Unauthorized"}, status_code=401
-                )
-            return RedirectResponse("/login")
+    # CHẶN TOÀN BỘ CÒN LẠI
+    if not is_authenticated(request):
+        if path.startswith("/api"):
+            return JSONResponse({"error": "Unauthorized"}, status_code=401)
+        return RedirectResponse("/login")
 
     return await call_next(request)
 
@@ -63,13 +54,13 @@ def login_page():
 <meta charset="utf-8">
 <title>Login</title>
 <style>
-body { font-family: Arial; max-width: 300px; margin: 100px auto; }
+body { font-family: Arial; max-width: 320px; margin: 100px auto; }
 input, button { width: 100%; padding: 12px; margin-top: 10px; }
 </style>
 </head>
 <body>
 <h3>🔐 Nhập mật khẩu</h3>
-<input type="password" id="pw" placeholder="Mật khẩu">
+<input type="password" id="pw">
 <button onclick="login()">Đăng nhập</button>
 <p id="msg"></p>
 
@@ -79,10 +70,14 @@ async function login() {
   const res = await fetch("/login", {
     method: "POST",
     headers: {"Content-Type": "application/json"},
-    body: JSON.stringify({password: pw})
+    body: JSON.stringify({ password: pw })
   });
-  if (res.ok) location.href = "/";
-  else document.getElementById("msg").innerText = "❌ Sai mật khẩu";
+
+  if (res.ok) {
+    location.href = "/";
+  } else {
+    document.getElementById("msg").innerText = "❌ Sai mật khẩu";
+  }
 }
 </script>
 </body>
@@ -91,17 +86,22 @@ async function login() {
 
 @app.post("/login")
 def login(data: dict):
+    # ❌ SAI → XÓA COOKIE
     if data.get("password") != PASSWORD:
-        return JSONResponse({"error": "wrong"}, status_code=401)
+        res = JSONResponse({"error": "wrong"}, status_code=401)
+        res.delete_cookie("auth_token")
+        return res
 
-    token = secrets.token_hex(16)
+    # ✅ ĐÚNG → TẠO SESSION MỚI
+    token = secrets.token_hex(24)
     SESSIONS[token] = time.time()
 
-    res = RedirectResponse("/", status_code=302)
+    res = JSONResponse({"ok": True})
     res.set_cookie(
         "auth_token",
         token,
         httponly=True,
+        secure=True,
         samesite="lax"
     )
     return res
@@ -111,6 +111,13 @@ def login(data: dict):
 def home():
     with open("static/index.html", encoding="utf-8") as f:
         return f.read()
+
+# ================= STATIC (CÓ AUTH) =================
+@app.get("/static/{path:path}")
+def static_files(path: str, request: Request):
+    if not is_authenticated(request):
+        return RedirectResponse("/login")
+    return FileResponse(os.path.join("static", path))
 
 # ================= API =================
 @app.post("/api/rent")
